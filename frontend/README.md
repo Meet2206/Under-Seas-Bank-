@@ -7,7 +7,7 @@ Modern **Digital Banking Dashboard UI** built with **React + Vite**
 ![React](https://img.shields.io/badge/React-Frontend-blue?style=for-the-badge\&logo=react)
 ![Vite](https://img.shields.io/badge/Vite-BuildTool-purple?style=for-the-badge\&logo=vite)
 ![Recharts](https://img.shields.io/badge/Recharts-Analytics-orange?style=for-the-badge)
-![FastAPI](https://img.shields.io/badge/FastAPI-Backend-green?style=for-the-badge\&logo=fastapi)
+
 
 </p>
 
