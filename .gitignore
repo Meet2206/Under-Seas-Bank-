@@ -1,0 +1,9 @@
+backend/.env
+frontend/.env
+frontend/.env.local
+.env
+.env.local
+.DS_Store
+backend/venv/
+frontend/node_modules/
+frontend/dist/

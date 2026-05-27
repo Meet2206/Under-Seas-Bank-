@@ -1,0 +1,38 @@
+services:
+  - type: web
+    name: under-seas-bank-api
+    runtime: python
+    rootDir: backend
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.9
+      - key: DEBUG
+        value: false
+      - key: APP_NAME
+        value: Under Seas Bank API
+      - key: APP_VERSION
+        value: 1.0.0
+      - key: DATABASE_URL
+        fromDatabase:
+          name: under-seas-bank-db
+          property: connectionString
+      - key: SECRET_KEY
+        generateValue: true
+      - key: FIELD_ENCRYPTION_KEY
+        sync: false
+      - key: CORS_ORIGINS
+        sync: false
+      - key: SMTP_USER
+        sync: false
+      - key: SMTP_PASSWORD
+        sync: false
+      - key: EMAIL_FROM
+        sync: false
+
+databases:
+  - name: under-seas-bank-db
+    databaseName: under_seas_bank
+    user: under_seas_bank_user

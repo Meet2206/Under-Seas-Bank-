@@ -1,0 +1,267 @@
+# 📘 Study Notes — Banking Backend with Python (ChatGPT Conversation)
+
+> Full conversation extracted from [ChatGPT shared link](https://chatgpt.com/share/69ab0dc0-ab64-8004-a0bd-c6fa64380021)
+
+---
+
+## Tech Stack
+
+| Layer | Technology | Purpose |
+|---|---|---|
+| **Backend Framework** | FastAPI | Modern async API framework with auto Swagger docs |
+| **Database** | PostgreSQL | ACID-compliant relational DB for financial data |
+| **ORM** | SQLAlchemy | Python ORM for database interactions |
+| **Cache / Broker** | Redis | OTP storage (encrypted, with TTL), rate limiting, caching, Celery broker |
+| **Background Tasks** | Celery | Async jobs (emails, notifications, interest calculations) |
+| **Reverse Proxy** | Nginx | SSL termination, load balancing, reverse proxy |
+| **Auth** | JWT + bcrypt | Token-based auth with password hashing |
+| **OTP Security** | `cryptography` lib | Encrypt OTPs before storing in Redis |
+
+---
+
+## Architecture
+
+```
+Client (Web/Mobile)
+    ↓
+Nginx (Reverse Proxy / SSL / Load Balancing)
+    ↓
+FastAPI (API Layer)
+    ↓
+Auth Layer (JWT + OTP)
+    ↓
+Service Layer (Business Logic)
+    ↓
+SQLAlchemy ORM
+    ↓
+PostgreSQL
+    ↕
+Redis (OTP cache, rate limiting, analytics cache)
+    ↕
+Celery Worker (emails, background tasks)
+```
+
+---
+
+## Core Modules
+
+### 1. User / Customer Management
+- Registration, Login/Logout, KYC details, Profile management
+- Fields: name, email, phone, address, Aadhaar/ID, password (hashed)
+
+### 2. Account Management
+- Create bank account, view details, multiple accounts per user
+- Fields: account_number, account_type (Savings/Current), balance, status
+
+### 3. Transactions
+- Deposit, Withdraw, Transfer between accounts, Transaction history
+- Fields: transaction_id, sender_account, receiver_account, amount, type, status, timestamp
+
+### 4. Balance & Statement
+- Check balance, view last N transactions, download statement
+
+### 5. Security
+- Password hashing (bcrypt), JWT auth, OTP verification, Rate limiting, Input validation
+
+### 6. Admin Panel
+- View all users, freeze/unfreeze accounts, view suspicious transactions, generate reports
+
+---
+
+## Advanced Modules
+
+### 7. OTP Verification
+- **Flow**: User action → Generate OTP → Encrypt with `cryptography` → Store in Redis (with TTL) → Send via Celery email task → User submits OTP → Decrypt → Verify
+
+### 8. Email Notifications (via Celery)
+- Account creation, transfer alerts, loan EMI reminders, credit card bill alerts
+- Uses `smtplib` or SendGrid/Mailgun, dispatched as async Celery tasks
+
+### 9. Interest Calculations
+- Savings: `Interest = (Balance × Rate × Time) / 100`
+- Can run as scheduled Celery task (daily/monthly cron)
+
+### 10. Loan Module
+- Types: Personal, Home, Education, Vehicle
+- **EMI Formula**: `EMI = [P × R × (1+R)^N] / [(1+R)^N – 1]`
+- Fields: loan_type, loan_amount, interest_rate, duration_months, monthly_emi, remaining_balance, status
+
+### 11. Fixed Deposits (FD)
+- Lock money for a period at a fixed rate
+- Fields: amount, interest_rate, start_date, maturity_date, status
+
+### 12. Credit Card System
+- Credit limit tracking, spending, monthly bill, minimum payment, late penalty
+- Fields: credit_limit, used_amount, available_limit, billing_date, due_date
+
+### 13. Expense Analytics Dashboard
+- Category-wise spending analysis: Food, Essentials, Transport, Shopping, Entertainment, Bills, Travel, Healthcare
+- **Pie chart** data for frontend (Chart.js)
+- Auto-categorization via merchant name keyword matching
+- APIs: `/analytics/monthly-expenses`, `/analytics/spending-trend`, `/analytics/top-categories`
+
+### 14. Financial Health Score (0–100)
+| Factor | Weight | Logic |
+|---|---|---|
+| Savings Ratio | Savings / Income | Higher = better |
+| Expense Distribution | Balanced vs. luxury-heavy | Balanced = better |
+| Credit Utilization | Used / Limit | Lower = better |
+| EMI Burden | EMI / Income | Lower = better |
+| Late Payments | Count | Fewer = better |
+
+> 90–100: Excellent · 70–89: Good · 50–69: Average · < 40: Critical
+
+### 15. AI Financial Tips (Rule-based)
+- "Your savings are low. Try saving at least 20% of your income."
+- "Your credit card usage is high. Consider paying some balance."
+- "Food expenses are high this month."
+- "Your entertainment spending increased by 40%."
+
+---
+
+## Database Schema
+
+| Table | Key Fields |
+|---|---|
+| **Users** | id, name, email, phone, password_hash, kyc_status, created_at |
+| **Accounts** | account_id, user_id (FK), account_number, account_type, balance, status |
+| **Transactions** | transaction_id, sender_account, receiver_account, amount, type, status, timestamp |
+| **OTP** | id, user_id, otp_code, expires_at, is_verified |
+| **Loans** | loan_id, user_id, loan_type, loan_amount, interest_rate, duration_months, emi, remaining_balance, status |
+| **FixedDeposits** | fd_id, user_id, amount, interest_rate, start_date, maturity_date, status |
+| **CreditCards** | card_id, user_id, card_number, credit_limit, used_amount, available_limit, billing/due_date, status |
+| **CardTransactions** | id, card_id, amount, merchant, timestamp |
+
+---
+
+## Full API List (30+)
+
+| Module | Endpoints |
+|---|---|
+| **Auth** | `POST /register`, `POST /login`, `POST /logout`, `POST /auth/send-otp`, `POST /auth/verify-otp`, `POST /forgot-password`, `POST /reset-password` |
+| **User** | `GET /profile`, `PUT /update-profile`, `GET /financial-summary` |
+| **Account** | `POST /account/create`, `GET /account/details`, `GET /account/balance`, `GET /account/list` |
+| **Transaction** | `POST /deposit`, `POST /withdraw`, `POST /transfer`, `GET /transactions`, `GET /transaction/{id}` |
+| **Loan** | `POST /loan/apply`, `GET /loan/list`, `GET /loan/{id}`, `POST /loan/pay-emi`, `GET /loan/emi-schedule` |
+| **FD** | `POST /fd/create`, `GET /fd/list`, `GET /fd/{id}`, `POST /fd/close` |
+| **Credit Card** | `POST /credit-card/apply`, `GET /credit-card/details`, `GET /credit-card/transactions`, `POST /credit-card/pay-bill`, `GET /credit-card/limit` |
+| **Dashboard** | `GET /dashboard/summary`, `GET /dashboard/recent-transactions` |
+| **Analytics** | `GET /analytics/monthly-expenses`, `GET /analytics/spending-trend`, `GET /analytics/top-categories`, `GET /analytics/top-merchants` |
+| **Admin** | `GET /admin/users`, `GET /admin/accounts`, `GET /admin/transactions`, `POST /admin/freeze-account`, `POST /admin/unfreeze-account` |
+
+---
+
+## Final Folder Structure
+
+```
+banking-backend/
+├── app/
+│   ├── main.py                 # FastAPI app entry point
+│   ├── config.py               # Environment config (.env loader)
+│   ├── database.py             # SQLAlchemy engine & session
+│   ├── redis_client.py         # Redis connection
+│   ├── celery_worker.py        # Celery app setup
+│   ├── models/                 # SQLAlchemy models
+│   │   ├── user.py
+│   │   ├── account.py
+│   │   ├── transaction.py
+│   │   ├── loan.py
+│   │   ├── creditcard.py
+│   │   └── fixeddeposit.py
+│   ├── schemas/                # Pydantic request/response schemas
+│   │   ├── auth.py
+│   │   ├── user.py
+│   │   ├── transaction.py
+│   │   ├── loan.py
+│   │   └── analytics.py
+│   ├── routes/                 # API route handlers
+│   │   ├── auth.py
+│   │   ├── user.py
+│   │   ├── account.py
+│   │   ├── transaction.py
+│   │   ├── loan.py
+│   │   ├── credit.py
+│   │   └── analytics.py
+│   ├── services/               # Business logic layer
+│   │   ├── auth_service.py
+│   │   ├── account_service.py
+│   │   ├── transaction_service.py
+│   │   ├── loan_service.py
+│   │   └── otp_service.py
+│   ├── tasks/                  # Celery async tasks
+│   │   └── email_tasks.py
+│   ├── analytics/              # Analytics engines
+│   │   ├── expense_analyzer.py
+│   │   ├── financial_health.py
+│   │   └── ai_tips_engine.py
+│   ├── middleware/             # Middleware
+│   │   └── auth.py
+│   └── utils/                  # Helpers
+│       ├── jwt_handler.py
+│       ├── password_hash.py
+│       ├── emi_calculator.py
+│       └── lookup_hash.py
+├── nginx/
+│   └── nginx.conf
+├── docker/
+│   ├── Dockerfile
+│   └── docker-compose.yml
+├── tests/
+├── requirements.txt
+├── .env
+└── README.md
+```
+
+---
+
+## Key Workflows
+
+| Flow | Steps |
+|---|---|
+| **Login** | Request → Nginx → FastAPI → OTP Generate → Encrypt → Redis Store → Celery Send Email → User Verifies → Decrypt → JWT Issued |
+| **Transfer** | Request → Balance Check → Record Transaction → Update Balances → Celery Send Alert Email |
+| **Analytics** | Request → Multi-table fetch → Aggregate → Cache in Redis → Return Dashboard Data |
+
+---
+
+## Why PostgreSQL over MySQL/MongoDB?
+
+- **ACID compliance** — critical for financial transactions
+- **Reliable transaction handling** — BEGIN/COMMIT/ROLLBACK
+- **Advanced data integrity** — foreign keys, constraints
+- **Better concurrency** — MVCC (Multi-Version Concurrency Control)
+- MongoDB's eventual consistency is dangerous for financial ledgers
+
+---
+
+## Build Roadmap (11 Phases)
+
+1. Setup folders & virtual environment
+2. Install dependencies
+3. Core infrastructure (`main.py`, `database.py`, `redis_client.py`)
+4. Database models (Users, Accounts, Transactions)
+5. Auth & OTP services
+6. Account & Transaction services
+7. Loan & FD modules
+8. Credit Card module
+9. Analytics & Dashboard
+10. Celery tasks (emails, notifications)
+11. Nginx config, Docker, README
+
+---
+
+## Dependencies ([requirements.txt](file:///Users/meetlimbachiya/Desktop/CODE/Not%20So%20Clone/Banking%20System%20%F0%9F%90%8D/requirements.txt))
+
+```
+fastapi
+uvicorn
+sqlalchemy
+psycopg2-binary
+bcrypt
+python-jose
+pydantic
+redis
+celery
+python-dotenv
+cryptography
+```
